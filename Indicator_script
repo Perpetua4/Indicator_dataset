@@ -4,6 +4,10 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+# Load the actual local path to your folder containing combined_data dataset
+directory_path = r'C:\Users\...'
+files_in_directory = os.listdir(directory_path)
+
 #Read combined_data sheet from excel and create a dataframe
 combined_data = pd.read_excel(os.path.join(directory_path ,'combined_datat.xlsx'), sheet_name='Sheet1')
 
