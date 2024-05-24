@@ -1,0 +1,143 @@
+# Pairwise distribution of indicators 
+
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+#Read combined_data sheet from excel and create a dataframe
+combined_data = pd.read_excel(os.path.join(directory_path ,'combined_datat.xlsx'), sheet_name='Sheet1')
+
+# Set the figure size for the seaborn plots
+sns.set(style="whitegrid", rc={"figure.figsize": (50, 15)})
+
+# Define a custom color palette
+palette = {"Waterbodies": "steelblue"}
+
+# Drop COMID before plotting
+data_for_plot = combined_data.drop(columns=['COMID'])
+
+# Plot pairplots
+pairplot_fig = sns.pairplot(data_for_plot, hue='System', palette=palette)
+
+# Save plots
+plt.savefig('my_pairplot.png', dpi=300) 
+
+
+#Correlation Matrix
+
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+data_for_plot = combined_data.drop(columns=['COMID', 'System'])
+# Calculate the correlation matrix
+
+correlation_matrix = data_for_plot.corr()
+# Set the threshold for displaying annotations on the heatmap
+threshold = 0.0
+
+# Create a mask to display only significant correlations
+# Optionally, adjust to display only upper triangle
+mask = np.abs(correlation_matrix) < threshold
+# Generate a mask for the upper triangle
+mask = np.triu(np.ones_like(correlation_matrix, dtype=bool))
+
+# Generate a custom diverging colormap
+cmap = sns.diverging_palette(230, 20, as_cmap=True)
+
+# Set up the matplotlib figure
+f, ax = plt.subplots(figsize=(6, 6))
+
+# Draw the heatmap with the mask and correct aspect ratio
+sns.heatmap(correlation_matrix, cmap=cmap, vmax=.3, center=0,
+            square=True, linewidths=.5, cbar_kws={"shrink": .76 }, annot=False, annot_kws={"size": 8 , "color": "black"})
+
+# Annotate only significant correlations
+for i in range(correlation_matrix.shape[0]):
+    for j in range(correlation_matrix.shape[1]):
+        if abs(correlation_matrix.iloc[i, j]) > threshold:  # Check if above threshold
+            plt.text(j+0.5, i+0.5, f'{correlation_matrix.iloc[i, j]:.2f}', 
+                     ha='center', va='center', color='black', fontsize=10)
+
+# This ensures that the heatmap is not truncated on the sides
+plt.xticks(rotation=0, fontsize=10)
+plt.yticks(rotation=90, fontsize=10)
+# plt.title('Flowline Indicator Correlations', fontsize=10)
+plt.tight_layout()  # Adjust the layout to fit better
+
+plt.savefig('my_matrix.png', dpi=300) 
+
+
+# SCENARIO classification 
+
+# Calculate initial quartiles for WAI, WQI, and ERI, WTC, WIC
+wai_quartiles = combined_data['WAI (MGD)'].quantile([0.25, 0.5, 0.75])
+wqi_quartiles = combined_data['WQI score'].quantile([0.25, 0.5, 0.75])
+eri_quartiles = combined_data['ERI (meter)'].quantile([0.25, 0.5, 0.75])
+wtc_quartiles = combined_data['WTC ($)'].quantile([0.25, 0.5, 0.75])
+wic_quartiles = combined_data['WIC ($)'].quantile([0.25, 0.5, 0.75])
+
+# Function to classify scenarios based on WAI, WQI, ERI, WTC and WIC
+def WSI_scenario(row): 
+    wai_high = row['WAI (MGD)'] >= wai_quartiles[0.25]
+    wqi_high = row['WQI score'] > wqi_quartiles[0.5]
+    eri_low1 = row['ERI (meter)'] <= eri_quartiles[0.75]
+    eri_low2 = row['ERI (meter)'] >= eri_quartiles[0.75] 
+    wtc_low1 = row['WTC ($)'] <= wtc_quartiles[0.75]
+    wic_low1 = row['WIC ($)'] <= wic_quartiles[0.5]
+
+    # Adjust these conditions as per your scenario definitions
+    if wqi_high and eri_low1 and wic_low1:
+        return 'MESIO'
+    elif wai_high and eri_low1 and wic_low1:
+        return 'MESID'
+    elif wai_high and wtc_low1 and wic_low1:
+        return 'LCMRD'
+    elif wai_high and wqi_high and eri_low2:
+        return 'IRDev-High'
+    elif wai_high and eri_low1:
+        return 'IRDev-Low'
+    elif wai_high and wic_low1:
+        return 'RSIM'
+    else:
+        return 'RSIM'
+
+# Apply the function to classify scenarios
+combined_data['WSI Scenario'] = combined_data.apply(WSI_scenario, axis=1)
+original_scenario_counts = combined_data['WSI Scenario'].value_counts()
+
+# Create a color palette with a color for each unique scenario
+palette = {
+    'MESIO': 'dimgrey',
+    'MESID': 'darkturquoise',
+    'LCMRD': 'darkred',
+    'IRDev-High': 'darkkhaki',
+    'IRDev-Low': 'darkgoldenrod',
+    'RSIM': 'darkgreen'
+}
+
+# Plot the pairplot with hue set to the new 'WSI_scenarios' column
+sns.set(style="whitegrid", rc={"figure.figsize": (10, 8)})
+data_for_plot = combined_data.drop(columns=['COMID'])
+pairplot_fig = sns.pairplot(data_for_plot, hue='WSI Scenario', palette=palette, plot_kws={'alpha': 0.5})
+
+# Count the number of occurrences for each category in 'WSI Scenario'
+counts = data_for_plot['WSI Scenario'].value_counts().to_dict()
+
+# Access the legend from the figure and update legend texts with counts
+for text in pairplot_fig._legend.texts:
+    label = text.get_text()
+    # Update the label with its count, if available
+    new_label = f'{label} (n={counts.get(label, 0)})' if label in counts else label
+    text.set_text(new_label)
+
+# Move the legend outside of the plot
+# bbox_to_anchor can be used to specify exact positioning: (x, y)
+plt.legend(loc='upper left', bbox_to_anchor=(1,1.2))
+
+# Adjust the layout
+pairplot_fig.tight_layout()
+
+# save plot
+plt.savefig('my_pairplot.png', dpi=360) 
